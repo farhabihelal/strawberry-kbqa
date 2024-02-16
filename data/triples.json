@@ -1,0 +1,16 @@
+{
+  "triples": [
+    ["person1", "hasName", "Timmy"],
+    ["person1", "hasAge", "25"],
+    ["person1", "hasProfession", "Mechanic"],
+    ["person1", "hasHometown", "California"],
+    ["person1", "hasFriend", "person2"],
+    ["person1", "hasPet", "cat"],
+    ["person2", "hasName", "Tommy"],
+    ["person2", "hasAge", "26"],
+    ["person2", "hasProfession", "Mechanic"],
+    ["person2", "hasHometown", "New York"],
+    ["person2", "hasFriend", "person1"],
+    ["person2", "hasPet", "cat"]
+  ]
+}

@@ -1,0 +1,10 @@
+ollama
+black
+ruff
+transformers
+torch
+langchain
+langchain-community
+langchain-experimental
+langchain-cli
+faiss-cpu
