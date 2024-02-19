@@ -2,10 +2,8 @@ import json
 import logging
 import os
 import sys
+from typing import Any, Iterable, List
 
-from typing import Iterable, List, Any
-
-from langchain_core.runnables import Runnable
 from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -13,8 +11,8 @@ from langchain_community.embeddings import OllamaEmbeddings
 from langchain_community.llms import Ollama
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
-
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import Runnable
 
 
 class QAHandler:

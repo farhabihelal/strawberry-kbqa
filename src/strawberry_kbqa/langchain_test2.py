@@ -60,12 +60,13 @@ retrieval_chain = create_retrieval_chain(retriever, document_chain)
 
 output_parser = StrOutputParser()
 
-plain_chain = prompt_plain | llm | output_parser
+plain_chain = prompt_plain | llm  # | output_parser
 
 
 def get_response(chain):
     response = chain.invoke({"input": question})
-    response = response if type(response) == str else response["answer"]
+    # response = response if type(response) == str else response["answer"]
+    response = response["answer"]
     print(f"\nresponse: {response}\n")
 
 
