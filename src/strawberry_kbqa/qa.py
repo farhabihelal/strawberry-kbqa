@@ -1,18 +1,13 @@
+from curses import raw
 import json
 import logging
 import os
 import sys
 from typing import Any, Iterable, List
 
-from langchain.chains import create_retrieval_chain
-from langchain.chains.combine_documents import create_stuff_documents_chain
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import OllamaEmbeddings
-from langchain_community.llms import Ollama
-from langchain_community.vectorstores import FAISS
-from langchain_core.documents import Document
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.runnables import Runnable
+import pip
+
+from pipeline import Pipeline, RAGPipeline
 
 
 class QAHandler:
@@ -20,73 +15,102 @@ class QAHandler:
     def __init__(self, config: dict):
         self.configure(config)
 
-        self.prompt_chain = None
-        self.llm_chain = None
-        self.document_chain = None
+        self.pipelines = []
 
-        self.prepare_chains()
+        self.setup_pipelines()
 
     def configure(self, config: dict):
         self.config = config
 
         self.model_name = config.get("model", "mistral")
 
-        self.character = config.get(
-            "character",
-            self.get_default_character(),
-        )
-
         self.prompt_template = config.get(
             "prompt_template",
             self.get_default_prompt_template(),
         )
 
-    def prepare_chains(self):
-        self.prompt_chain = self.create_prompt_chain()
-        self.llm_chain = self.create_llm_chain()
-        self.document_chain = self.create_document_chain()
+    def setup_pipelines(self):
+        rag_pipeline = RAGPipeline(self.config)
+        self.pipelines.append(rag_pipeline)
 
-    def answer(self, question: str, context: str) -> str:
-        retrieval_chain = self.create_retrieval_chain(context)
-        response = retrieval_chain.invoke({"input": question})
-        return response["answer"]
+        general_pipeline = Pipeline()
+        self.pipelines.append(general_pipeline)
 
-    def create_documents(self, data: str) -> List[Document]:
-        text_splitter = RecursiveCharacterTextSplitter()
-        documents = text_splitter.split_documents([Document(page_content=data)])
-        return documents
+    def answer(self, question: str, context: list) -> str:
+        context = self.process_context(context)
+        query = {
+            "input": question,
+        }
 
-    def create_prompt_chain(self, prompt_template: str = None) -> ChatPromptTemplate:
-        prompt_template = prompt_template or self.prompt_template
-        return ChatPromptTemplate.from_template(prompt_template)
+        logging.info(f"Answering question: {question}")
+        for pipeline in self.pipelines:
+            pipeline.run(query, context=context)
 
-    def create_llm_chain(self, model_name: str = None) -> Any:
-        model_name = model_name or self.model_name
+        logging.info("Waiting for pipelines to finish...")
+        for pipeline in self.pipelines:
+            pipeline.join()
 
-        llm_chain = Ollama(model=model_name)
-        return llm_chain
+        raw_response = ""
+        for pipeline in self.pipelines:
+            if pipeline.success:
+                raw_response = pipeline.result
+                break
 
-    def create_document_chain(self, llm_chain=None, prompt_chain=None) -> Runnable:
-        llm_chain = llm_chain or self.llm_chain
-        prompt_chain = prompt_chain or self.prompt_chain
+        response = self.filter_answer(raw_response)
 
-        document_chain = create_stuff_documents_chain(llm_chain, prompt_chain)
-        return document_chain
+        return response
 
-    def create_retrieval_chain(self, context: str, embeddings=None) -> Runnable:
-        embeddings = embeddings or OllamaEmbeddings()
-        documents = self.create_documents(context)
-        vector = FAISS.from_documents(documents, embeddings)
+    @staticmethod
+    def process_context(context: list) -> str:
+        processed_context = []
 
-        retriever = vector.as_retriever()
-        retrieval_chain = create_retrieval_chain(retriever, self.document_chain)
+        unique_persons = set([x[0] for x in context if "person" in x[0]])
+        person_names = {
+            person: [x[2] for x in context if x[0] == person and "hasName" in x[1]][0]
+            for person in unique_persons
+        }
 
-        return retrieval_chain
+        for triple in context:
+            subject, predicate, object = triple
+
+            if any(x in predicate for x in ["hasName", "rdf:type"]):
+                continue
+
+            if subject in unique_persons:
+                subject = person_names[subject]
+            if object in unique_persons:
+                object = person_names[object]
+
+            processed_context.append((subject, predicate, object))
+
+        processed_context = "\n".join(
+            [f'"{x[0]}","{x[1]}","{x[2]}"' for x in processed_context]
+        )
+
+        return processed_context
+
+    @staticmethod
+    def filter_answer(raw_answer: str) -> str:
+
+        if not "context" in raw_answer:
+            return raw_answer
+
+        filtered_answer = raw_answer
+
+        unwanted_texts = [
+            "According to the context provided, ",
+            "Based on the context provided, ",
+            "Based on the provided context, ",
+        ]
+
+        for unwanted_text in unwanted_texts:
+            filtered_answer = filtered_answer.replace(unwanted_text, "").strip()
+
+        return filtered_answer
 
     @classmethod
     def get_default_prompt_template(self) -> str:
         return """Answer the following question based only on the provided context:
-
 <context>
 {context}
 </context>
@@ -96,12 +120,9 @@ Question: {input}"""
 
 if __name__ == "__main__":
 
-    def process_context(context: list) -> str:
-        return json.dumps(context)
-
     logging.basicConfig(level=logging.INFO)
 
-    prompt_template = """Answer the following question based only on the provided context:
+    prompt_template = """You are Haru. Answer the following question based only on the provided context:
 <context>
 {context}
 </context>
@@ -109,12 +130,12 @@ if __name__ == "__main__":
 Question: {input}"""
 
     config = {
-        "model": "mistral",
+        "model_name": "mistral",
         "prompt_template": prompt_template,
     }
     handler = QAHandler(config)
 
-    context_data = [
+    context = [
         # peron1
         ("person1", "hasName", "Timmy"),
         ("person1", "hasAge", "25"),
@@ -129,9 +150,17 @@ Question: {input}"""
         ("person2", "hasHometown", "New York"),
         ("person2", "hasFriend", "person1"),
         ("person2", "hasPet", "cat"),
+        # haru
+        ("haru", "hasName", "Haru"),
+        ("haru", "hasAge", "7"),
+        ("haru", "hasProfession", "Social Mediator"),
+        ("haru", "hasHomeCountry", "Japan"),
+        ("haru", "hasFavorite", "Baseball"),
+        ("haru", "hasFavorite", "Fall"),
+        ("haru", "hasFavorite", "Microchip"),
     ]
 
-    context = process_context(context_data)
+    print(QAHandler.process_context(context))
 
     while True:
         question = input("Enter a question: ")
