@@ -12,7 +12,7 @@ from pipeline import Pipeline, RAGPipeline
 
 class QAHandler:
 
-    def __init__(self, config: dict):
+    def __init__(self, config: dict = None) -> None:
         self.configure(config)
 
         self.pipelines = []
@@ -22,19 +22,10 @@ class QAHandler:
     def configure(self, config: dict):
         self.config = config
 
-        self.model_name = config.get("model", "mistral")
-
-        self.prompt_template = config.get(
-            "prompt_template",
-            self.get_default_prompt_template(),
-        )
-
     def setup_pipelines(self):
-        rag_pipeline = RAGPipeline(self.config)
-        self.pipelines.append(rag_pipeline)
+        self.pipelines.append(RAGPipeline(self.config))
 
-        general_pipeline = Pipeline()
-        self.pipelines.append(general_pipeline)
+        self.pipelines.append(Pipeline(self.config))
 
     def answer(self, question: str, context: list) -> str:
         context = self.process_context(context)
@@ -122,18 +113,7 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=logging.INFO)
 
-    prompt_template = """You are Haru. Answer the following question based only on the provided context:
-<context>
-{context}
-</context>
-
-Question: {input}"""
-
-    config = {
-        "model_name": "mistral",
-        "prompt_template": prompt_template,
-    }
-    handler = QAHandler(config)
+    handler = QAHandler()
 
     context = [
         # peron1
