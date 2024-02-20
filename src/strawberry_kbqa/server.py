@@ -2,7 +2,7 @@ import json
 import logging
 import logging.config
 
-from flask import Flask
+from flask import Flask, request as Request
 
 from qa import QAHandler
 
@@ -12,7 +12,7 @@ class QAService:
     def __init__(self, config: dict):
         self.configure(config)
 
-        self.app = Flask(__name__)
+        self.server = Flask(__name__)
 
         self.setup_routes()
         self.setup_qa_handler()
@@ -21,16 +21,15 @@ class QAService:
         self.config = config
 
         self.port = config.get("port", 9880)
-        self.model = config.get("model", "mistral")
 
     def setup_qa_handler(self):
         self.qa_handler = QAHandler(self.config)
 
     def setup_routes(self):
-        @self.app.route("/strawberry_kb/qa", methods=["POST"])
-        def answer(request: str) -> str:
+        @self.server.route("/kb/qa", methods=["POST"])
+        def answer() -> str:
+            request = Request.get_json()
             logging.info(f"Received request: {request}")
-            request = json.loads(request)
             answer = self.qa_handler.answer(request["question"], request["context"])
 
             response = {
@@ -41,13 +40,14 @@ class QAService:
     def run(self, port: int = None):
         port = port or self.port
         logging.info(f"Starting QA service on port {port}")
-        self.app.run(port=port)
+        self.server.run(host="0.0.0.0", port=port, debug=False)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
+
     config = {
         "port": 9880,
-        "model": "mistral",
     }
     service = QAService(config)
     service.run()

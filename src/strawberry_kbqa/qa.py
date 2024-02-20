@@ -1,4 +1,3 @@
-from curses import raw
 import json
 import logging
 import os
@@ -23,9 +22,9 @@ class QAHandler:
         self.config = config
 
     def setup_pipelines(self):
-        self.pipelines.append(RAGPipeline(self.config))
+        self.pipelines.append(RAGPipeline(dict(self.config)))
 
-        self.pipelines.append(Pipeline(self.config))
+        self.pipelines.append(Pipeline(dict(self.config)))
 
     def answer(self, question: str, context: list) -> str:
         context = self.process_context(context)
@@ -111,9 +110,10 @@ Question: {input}"""
 
 if __name__ == "__main__":
 
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
 
-    handler = QAHandler()
+    config = {}
+    handler = QAHandler(config)
 
     context = [
         # peron1
@@ -140,7 +140,7 @@ if __name__ == "__main__":
         ("haru", "hasFavorite", "Microchip"),
     ]
 
-    print(QAHandler.process_context(context))
+    print(json.dumps(QAHandler.process_context(context)))
 
     while True:
         question = input("Enter a question: ")
