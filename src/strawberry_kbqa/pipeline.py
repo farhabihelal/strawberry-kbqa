@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import sys
 import threading
 from typing import Any, Iterable, List
@@ -8,7 +9,7 @@ from typing import Any, Iterable, List
 from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.embeddings.cache import CacheBackedEmbeddings
-from langchain.storage import LocalFileStore, InMemoryStore
+from langchain.storage import InMemoryStore, LocalFileStore
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import OllamaEmbeddings
 from langchain_community.llms import Ollama
@@ -17,7 +18,6 @@ from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
-
 from timer import Timer, measure_time
 
 
@@ -31,7 +31,9 @@ class BasePipeline:
         self.chain = self.create_chain()
 
         self.thread = None
-        self.result = None
+        self.raw_result = None
+
+        self.success = False
 
     def configure(self, config: dict):
         self.config = config
@@ -59,13 +61,15 @@ class BasePipeline:
 
         return prompt
 
-    def process_response(self, response: Any) -> Any:
-        self.result = response if type(response) is str else response["answer"]
+    def process_response(self, response: Any) -> str:
+        result = response if type(response) is str else response["answer"]
+        return result
 
     @measure_time
     def _invoke(self, query: dict, chain: Runnable) -> None:
         response = chain.invoke(query)
-        self.process_response(response)
+        self.raw_result = self.process_response(response)
+        self.success = not self.has_failed()
 
     def _run(self, *args, **kwargs) -> None:
         th = threading.Thread(target=self._invoke, args=[*args], kwargs={**kwargs})
@@ -81,17 +85,26 @@ class BasePipeline:
         return self.thread.is_alive()
 
     def has_failed(self) -> bool:
-        return True if "sorry" in self.result else False
+        return any(
+            [
+                x in self.raw_result
+                for x in ["sorry", "does not", "not", "cannot", "unable"]
+            ]
+        )
 
     def join(self) -> None:
         self.thread.join()
+
+    @property
+    def result(self) -> str:
+        return self.raw_result if self.success else ""
 
 
 class Pipeline(BasePipeline):
 
     default_model_name = "mistral"
     default_prompt_template = """Answer the following question based on general knowledge and common sense. Use less than 2 sentences. Be polite and friendly. Say "sorry" if you don't know the answer.
-    Question: {question}"""
+    Question: {input}"""
 
     def __init__(self, config: dict = None) -> None:
         config = config or self.get_default_config()
@@ -104,17 +117,28 @@ class Pipeline(BasePipeline):
             "prompt_template": Pipeline.default_prompt_template,
         }
 
+    def run(self, query: dict, *args, **kwargs) -> None:
+        return super().run(query)
+
 
 class RAGPipeline(BasePipeline):
+    default_embeddings = OllamaEmbeddings()
+    default_model_name = "mistral"
+    default_prompt_template = """Answer the following question based only on the provided context. Use less than 3 sentences. Be polite and friendly. Never mention context in the response.
+<context>
+{context}
+</context>
+
+Question: {input}"""
+
     def __init__(self, config: dict) -> None:
         super().__init__(config)
 
-        self.default_embeddings = OllamaEmbeddings()
-        self.current_embeddings = self.default_embeddings
+        self.current_embeddings = RAGPipeline.default_embeddings
 
         self.local_store = InMemoryStore()
 
-        self.cached_embedder = self.create_cache(self.default_embeddings)
+        self.cached_embedder = self.create_cache(RAGPipeline.default_embeddings)
 
     def create_documents(self, data: str) -> List[Document]:
         text_splitter = RecursiveCharacterTextSplitter()
@@ -156,9 +180,9 @@ class RAGPipeline(BasePipeline):
 
 
 if __name__ == "__main__":
-    # query = {
-    #     "question": "how old is the universe and earth?",
-    # }
+    query = {
+        "input": "how old is the universe and earth?",
+    }
 
     # prompt_template = """Answer the following question based on general knowledge and common sense. Use less than 2 sentences. Be polite and friendly. Say "sorry" if you don't know the answer.
     # Question: {question}"""
@@ -176,14 +200,11 @@ if __name__ == "__main__":
     # print(base_pipe.has_failed())
     # print(base_pipe.is_running())
 
-    # pipe = Pipeline()
+    pipe = Pipeline()
 
-    # pipe.run(query)
-    # print(pipe.is_running())
-    # pipe.join()
-    # print(pipe.result)
-    # print(pipe.has_failed())
-    # print(pipe.is_running())
+    pipe.run(query, context={})
+    pipe.join()
+    print(pipe.result)
 
     prompt_template = """Answer the following question based only on the provided context. Use less than 3 sentences. Be polite and friendly. Never mention context in the response.
 <context>
