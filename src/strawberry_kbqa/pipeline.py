@@ -35,7 +35,7 @@ class BasePipeline:
 
         self.success = False
 
-    def configure(self, config: dict):
+    def configure(self, config: dict) -> None:
         self.config = config
 
         self.model_name = config["model_name"]
@@ -103,12 +103,21 @@ class BasePipeline:
 class Pipeline(BasePipeline):
 
     default_model_name = "mistral"
-    default_prompt_template = """Answer the following question based on general knowledge and common sense. Use less than 2 sentences. Be polite and friendly. Say "sorry" if you don't know the answer.
+    default_prompt_template = """Answer the following question based on general knowledge and common sense. Use less than 2 sentences. Say "sorry" if you don't know the answer. Never say the source. The answer should be short, polite, and succinct.
     Question: {input}"""
 
     def __init__(self, config: dict = None) -> None:
         config = config or self.get_default_config()
         super().__init__(config)
+
+    def configure(self, config: dict) -> None:
+        if "model_name" not in config:
+            config["model_name"] = Pipeline.default_model_name
+
+        if "prompt_template" not in config:
+            config["prompt_template"] = Pipeline.default_prompt_template
+
+        return super().configure(config)
 
     @classmethod
     def get_default_config(self) -> dict:
@@ -124,14 +133,15 @@ class Pipeline(BasePipeline):
 class RAGPipeline(BasePipeline):
     default_embeddings = OllamaEmbeddings()
     default_model_name = "mistral"
-    default_prompt_template = """Answer the following question based only on the provided context. Use less than 3 sentences. Be polite and friendly. Never mention context in the response.
+    default_prompt_template = """You are Haru. Answer the following question based only on the provided context. Use less than 3 sentences. Be polite and friendly. Never mention your context in the response. Never say the source. The answer should be short, polite, and succinct. Do not unnecessarily remind people that you are a `Haru` in your answer.
 <context>
 {context}
 </context>
 
 Question: {input}"""
 
-    def __init__(self, config: dict) -> None:
+    def __init__(self, config: dict = None) -> None:
+        config = config or self.get_default_config()
         super().__init__(config)
 
         self.current_embeddings = RAGPipeline.default_embeddings
@@ -139,6 +149,15 @@ Question: {input}"""
         self.local_store = InMemoryStore()
 
         self.cached_embedder = self.create_cache(RAGPipeline.default_embeddings)
+
+    def configure(self, config: dict) -> None:
+        if "model_name" not in config:
+            config["model_name"] = RAGPipeline.default_model_name
+
+        if "prompt_template" not in config:
+            config["prompt_template"] = RAGPipeline.default_prompt_template
+
+        return super().configure(config)
 
     def create_documents(self, data: str) -> List[Document]:
         text_splitter = RecursiveCharacterTextSplitter()
@@ -177,6 +196,13 @@ Question: {input}"""
         retrieval_chain = self.create_retrieval_chain(context)
 
         super().run(query, chain=retrieval_chain)
+
+    @classmethod
+    def get_default_config(self) -> dict:
+        return {
+            "model_name": RAGPipeline.default_model_name,
+            "prompt_template": RAGPipeline.default_prompt_template,
+        }
 
 
 if __name__ == "__main__":
@@ -217,7 +243,7 @@ Question: {input}"""
         "model_name": "mistral",
         "prompt_template": prompt_template,
     }
-    pipe = RAGPipeline(config)
+    pipe = RAGPipeline()
 
     context = """("person1", "hasName", "Timmy"),
 ("person1", "hasAge", "25"),
