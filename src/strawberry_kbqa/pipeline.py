@@ -8,7 +8,7 @@ from typing import Any, Iterable, List
 from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.embeddings.cache import CacheBackedEmbeddings
-from langchain.storage import LocalFileStore
+from langchain.storage import LocalFileStore, InMemoryStore
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import OllamaEmbeddings
 from langchain_community.llms import Ollama
@@ -17,6 +17,8 @@ from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
+
+from timer import Timer, measure_time
 
 
 class BasePipeline:
@@ -60,6 +62,7 @@ class BasePipeline:
     def process_response(self, response: Any) -> Any:
         self.result = response if type(response) is str else response["answer"]
 
+    @measure_time
     def _invoke(self, query: dict, chain: Runnable) -> None:
         response = chain.invoke(query)
         self.process_response(response)
@@ -109,8 +112,7 @@ class RAGPipeline(BasePipeline):
         self.default_embeddings = OllamaEmbeddings()
         self.current_embeddings = self.default_embeddings
 
-        self.local_file_store_path = os.path.join("/", "tmp", "strawberry_qa", "cache")
-        self.local_store = LocalFileStore(self.local_file_store_path)
+        self.local_store = InMemoryStore()
 
         self.cached_embedder = self.create_cache(self.default_embeddings)
 
@@ -128,6 +130,7 @@ class RAGPipeline(BasePipeline):
         return create_stuff_documents_chain(llm, prompt)
 
     def create_cache(self, embeddings: Embeddings) -> CacheBackedEmbeddings:
+        self.current_embeddings = embeddings
         return CacheBackedEmbeddings.from_bytes_store(
             embeddings, self.local_store, namespace=embeddings.model
         )
@@ -135,16 +138,16 @@ class RAGPipeline(BasePipeline):
     def create_retrieval_chain(
         self, context: str, embeddings: Embeddings = None
     ) -> Runnable:
-        embeddings = embeddings or self.default_embeddings
+        embeddings = embeddings or self.current_embeddings
 
         if embeddings != self.current_embeddings:
             logging.info("Creating new cache ...")
             self.cached_embedder = self.create_cache(embeddings)
 
         documents = self.create_documents(context)
-        vector = FAISS.from_documents(documents, self.cached_embedder)
+        db = FAISS.from_documents(documents, self.cached_embedder)
 
-        return create_retrieval_chain(vector.as_retriever(), self.chain)
+        return create_retrieval_chain(db.as_retriever(), self.chain)
 
     def run(self, query: dict, context: str) -> None:
         retrieval_chain = self.create_retrieval_chain(context)
@@ -195,15 +198,14 @@ Question: {input}"""
     }
     pipe = RAGPipeline(config)
 
-    context = """[
-("person1", "hasName", "Timmy"),
+    context = """("person1", "hasName", "Timmy"),
 ("person1", "hasAge", "25"),
 ("person1", "hasPet", "cat"),
 ("person2", "hasName", "Jimmy"),
 ("person2", "hasAge", "35"),
 ("person2", "hasPet", "lion"),
 ("person2", "hasFriend", "person1"),
-]"""
+"""
 
     context = context.replace("\n", "")
 
@@ -217,6 +219,7 @@ Question: {input}"""
     query = {
         "input": "How old is Timmy?",
     }
-    pipe.run(query, context)
-    pipe.join()
+    with Timer("RAGPipeline"):
+        pipe.run(query, context)
+        pipe.join()
     print(pipe.result)
