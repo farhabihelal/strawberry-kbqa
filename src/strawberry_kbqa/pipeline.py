@@ -161,8 +161,9 @@ Question: {input}"""
 
     def create_documents(self, data: str) -> List[Document]:
         text_splitter = RecursiveCharacterTextSplitter()
-        documents = text_splitter.split_documents([Document(page_content=data)])
-        return documents
+        documents = [Document(page_content=data)]
+        splitted_documents = text_splitter.split_documents(documents)
+        return splitted_documents or documents
 
     def create_chain(
         self, llm: Ollama = None, prompt: ChatPromptTemplate = None
@@ -259,7 +260,7 @@ Question: {input}"""
     query = {
         "input": "What is Timmy's pet?",
     }
-    pipe.run(query, context)
+    pipe.run(query, "")
     pipe.join()
     print(pipe.result)
 
