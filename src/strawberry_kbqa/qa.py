@@ -26,7 +26,8 @@ class QAHandler:
 
         self.pipelines.append(Pipeline(dict(self.config)))
 
-    def answer(self, question: str, context: list) -> str:
+    def answer(self, question: str, triple_data: dict) -> str:
+        context = self.convert_triple2context(triple_data["triples"])
         context = self.process_context(context)
         query = {
             "input": question,
@@ -49,6 +50,11 @@ class QAHandler:
         response = self.filter_answer(raw_response)
 
         return response
+
+    @staticmethod
+    def convert_triple2context(triples: list) -> list:
+        context = [list(x.values()) for x in triples]
+        return context
 
     @staticmethod
     def process_context(context: list) -> str:

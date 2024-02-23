@@ -34,8 +34,6 @@ class QAService:
             question = request["question"]
             context = request["context"]
 
-            context = self.convert_triple2context(context["triples"])
-
             answer = self.qa_handler.answer(question, context)
 
             response = {
@@ -47,10 +45,6 @@ class QAService:
         port = port or self.port
         logging.info(f"Starting QA service on port {port}")
         self.server.run(host="0.0.0.0", port=port, debug=False)
-
-    def convert_triple2context(self, triples: list) -> list:
-        context = [list(x.values()) for x in triples]
-        return context
 
 
 if __name__ == "__main__":
