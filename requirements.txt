@@ -9,3 +9,4 @@ langchain-experimental
 langchain-cli
 faiss-cpu
 flask
+prompt_toolkit

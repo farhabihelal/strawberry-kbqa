@@ -1,7 +1,10 @@
 import requests
+import readline
 
 from rich.console import Console
 from rich.prompt import Prompt
+
+readline.set_history_length(100)
 
 
 class QAClient:
@@ -50,30 +53,68 @@ if __name__ == "__main__":
     config = {
         "host": "localhost",
         "port": 9880,
-        "context": [
-            # peron1
-            ("person1", "hasName", "Timmy"),
-            ("person1", "hasAge", "25"),
-            ("person1", "hasProfession", "Mechanic"),
-            ("person1", "hasHometown", "California"),
-            ("person1", "hasFriend", "person2"),
-            ("person1", "hasPet", "cat"),
-            # person2
-            ("person2", "hasName", "Tommy"),
-            ("person2", "hasAge", "26"),
-            ("person2", "hasProfession", "Mechanic"),
-            ("person2", "hasHometown", "New York"),
-            ("person2", "hasFriend", "person1"),
-            ("person2", "hasPet", "cat"),
-            # haru
-            ("haru", "hasName", "Haru"),
-            ("haru", "hasAge", "7"),
-            ("haru", "hasProfession", "Social Mediator"),
-            ("haru", "hasHomeCountry", "Japan"),
-            ("haru", "hasFavorite", "Baseball"),
-            ("haru", "hasFavorite", "Fall"),
-            ("haru", "hasFavorite", "Microchip"),
-        ],
+        "context": {
+            "triples": [
+                # peron1
+                {"subject": "person1", "predicate": "hasName", "object": "Timmy"},
+                {"subject": "person1", "predicate": "hasAge", "object": "25"},
+                {
+                    "subject": "person1",
+                    "predicate": "hasProfession",
+                    "object": "Mechanic",
+                },
+                {
+                    "subject": "person1",
+                    "predicate": "hasHometown",
+                    "object": "California",
+                },
+                {"subject": "person1", "predicate": "hasFriend", "object": "person2"},
+                {"subject": "person1", "predicate": "hasPet", "object": "cat"},
+                # person2
+                {"subject": "person1", "predicate": "hasName", "object": "Tommy"},
+                {"subject": "person1", "predicate": "hasAge", "object": "26"},
+                {
+                    "subject": "person1",
+                    "predicate": "hasProfession",
+                    "object": "Mechanic",
+                },
+                {
+                    "subject": "person1",
+                    "predicate": "hasHometown",
+                    "object": "New York",
+                },
+                {"subject": "person1", "predicate": "hasFriend", "object": "person1"},
+                {"subject": "person1", "predicate": "hasPet", "object": "bird"},
+                # haru
+                {"subject": "haru", "predicate": "hasName", "object": "Haru"},
+                {"subject": "haru", "predicate": "hasAge", "object": "7"},
+                {
+                    "subject": "haru",
+                    "predicate": "hasProfession",
+                    "object": "Social Mediator",
+                },
+                {"subject": "haru", "predicate": "hasHomeCountry", "object": "Japan"},
+                {"subject": "Japan", "predicate": "rdf:ype", "object": "Country"},
+                {"subject": "haru", "predicate": "hasFavorite", "object": "Baseball"},
+                {"subject": "Baseball", "predicate": "rdf:ype", "object": "Sports"},
+                {"subject": "haru", "predicate": "hasFavorite", "object": "Fall"},
+                {"subject": "Fall", "predicate": "rdf:type", "object": "Season"},
+                {"subject": "haru", "predicate": "hasFavorite", "object": "Microchips"},
+                {"subject": "Microchips", "predicate": "rdf:type", "object": "Food"},
+                {"subject": "haru", "predicate": "hasFavorite", "object": "Godzilla"},
+                {"subject": "Godzilla", "predicate": "rdf:type", "object": "Movie"},
+                {
+                    "subject": "haru",
+                    "predicate": "hasFavorite",
+                    "object": "Watching_TV",
+                },
+                {"subject": "Watching_TV", "predicate": "rdf:type", "object": "Hobby"},
+                {"subject": "haru", "predicate": "hasFavorite", "object": "Asia"},
+                {"subject": "Asia", "predicate": "rdf:type", "object": "Continent"},
+                {"subject": "haru", "predicate": "hasFavorite", "object": "North"},
+                {"subject": "North", "predicate": "rdf:type", "object": "Hemisphere"},
+            ]
+        },
     }
     app = QAClient(config)
     app.run()
