@@ -4,8 +4,6 @@ import os
 import sys
 from typing import Any, Iterable, List
 
-import pip
-
 from pipeline import Pipeline, RAGPipeline
 
 
