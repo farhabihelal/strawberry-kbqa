@@ -66,13 +66,13 @@ class ContextData:
 
         return ContextData(contexts)
 
-    def get_all_unique_subjects(self) -> List[str]:
+    def get_unique_subjects(self) -> List[str]:
         subjects = []
         for context in self.contexts:
             subjects.append(context.triple[0])
         return list(set(subjects))
 
-    def get_all_unique_predicates(self) -> List[str]:
+    def get_unique_predicates(self) -> List[str]:
         predicates = []
         for context in self.contexts:
             predicates.append(context.triple[1])
@@ -97,7 +97,11 @@ class ContextData:
         return [x.triple for x in self.contexts]
 
     def to_list_compact(self) -> List[List[str]]:
-        return ContextData.merge_types(self).to_list_simple()
+        context_data = self
+        context_data = ContextData.merge_types(context_data)
+        context_data = ContextData.replace_subjects(context_data)
+
+        return context_data.to_list_simple()
 
     @staticmethod
     def merge_types(context_data):
@@ -110,6 +114,24 @@ class ContextData:
                         x[0],
                         f"{x[1]}{all_types_map.get(x[2], '')}",
                         x[2],
+                    ]
+                )
+                for x in context_data
+                if not x.is_type()
+            ]
+        )
+
+    @staticmethod
+    def replace_subjects(context_data):
+        names_map = {x[0]: x[2] for x in context_data.get_all_with_predicate("hasName")}
+
+        return ContextData(
+            [
+                Context(
+                    [
+                        f"{names_map.get(x[0], x[0])}",
+                        x[1],
+                        f"{names_map.get(x[2], x[2])}",
                     ]
                 )
                 for x in context_data
@@ -138,20 +160,20 @@ if __name__ == "__main__":
             {"subject": "person1", "predicate": "hasFriend", "object": "person2"},
             {"subject": "person1", "predicate": "hasPet", "object": "cat"},
             # person2
-            {"subject": "person1", "predicate": "hasName", "object": "Tommy"},
-            {"subject": "person1", "predicate": "hasAge", "object": "26"},
+            {"subject": "person2", "predicate": "hasName", "object": "Tommy"},
+            {"subject": "person2", "predicate": "hasAge", "object": "26"},
             {
-                "subject": "person1",
+                "subject": "person2",
                 "predicate": "hasProfession",
                 "object": "Mechanic",
             },
             {
-                "subject": "person1",
+                "subject": "person2",
                 "predicate": "hasHometown",
                 "object": "New York",
             },
-            {"subject": "person1", "predicate": "hasFriend", "object": "person1"},
-            {"subject": "person1", "predicate": "hasPet", "object": "bird"},
+            {"subject": "person2", "predicate": "hasFriend", "object": "person1"},
+            {"subject": "person2", "predicate": "hasPet", "object": "bird"},
             # haru
             {"subject": "haru", "predicate": "hasName", "object": "Haru"},
             {"subject": "haru", "predicate": "hasAge", "object": "7"},
