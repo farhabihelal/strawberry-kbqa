@@ -53,7 +53,7 @@ class ContextData:
         return output
 
     def __str__(self) -> str:
-        return repr(self)
+        return "\n".join([str(x) for x in self.contexts])
 
     @staticmethod
     def from_triples(triples: dict):
@@ -97,11 +97,13 @@ class ContextData:
         return [x.triple for x in self.contexts]
 
     def to_list_compact(self) -> List[List[str]]:
+        return self.to_compact_form().to_list_simple()
+
+    def to_compact_form(self):
         context_data = self
         context_data = ContextData.merge_types(context_data)
         context_data = ContextData.replace_subjects(context_data)
-
-        return context_data.to_list_simple()
+        return context_data
 
     @staticmethod
     def merge_types(context_data):
@@ -213,5 +215,6 @@ if __name__ == "__main__":
     # print(context_data.get_all_with_subject("haru"))
     # print(context_data.to_list_simple())
     print(context_data.to_list_compact())
+    print(str(context_data.to_compact_form()))
     # print(context_data.get_type_appended_favorites())
     # print(context_data.merge_types())
