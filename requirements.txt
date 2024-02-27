@@ -10,3 +10,5 @@ langchain-cli
 faiss-cpu
 flask
 prompt_toolkit
+spacy
+nltk
