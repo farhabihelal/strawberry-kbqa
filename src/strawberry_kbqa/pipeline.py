@@ -6,6 +6,8 @@ import sys
 import threading
 from typing import Any, Iterable, List
 
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+
 from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.embeddings.cache import CacheBackedEmbeddings
@@ -16,7 +18,7 @@ from langchain_community.llms import Ollama
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate
 from langchain_core.runnables import Runnable
 from timer import Timer, measure_time
 
@@ -100,6 +102,53 @@ class BasePipeline:
         return self.raw_result if self.success else ""
 
 
+class ResponseValidationPipeline(BasePipeline):
+
+    default_model_name = "mistral:instruct"
+    default_prompt_template = """<s>[INST]Validate the given sentence. Remove any questions.
+    Paraphrase to remove undesired context information from the sentence. Such as-
+    ["According to the context provided, ...","Based on the context provided, ...","Based on the provided context, ...", etc.]
+    For example, The sentence: "Based on the context, The capital of France is Paris." should be paraphrased to "The capital of France is Paris."
+
+    
+    Invalid examples:
+    "Sorry, I am an artificial intelligence."
+    "Sorry, I failed to find answer based on the context."
+
+    Say nothing but "FAILED" if semantic meaning of the sentence is failure. Some of the failure phrases include ["Sorry, I am an artificial intelligence.", "Sorry, I failed to find answer based on the context.", "Sorry", ... etc.].
+    For example, The sentence: "I am sorry. I could not find a suitable answer based on my context" should be responded with "FAILED".
+    </s>[/INST]
+    
+    [INST]Sentence: {input}[/INST]
+    """
+
+    def __init__(self, config: dict = None) -> None:
+        config = config or self.get_default_config()
+        super().__init__(config)
+
+    def configure(self, config: dict) -> None:
+        if "model_name" not in config:
+            config["model_name"] = Pipeline.default_model_name
+
+        if "prompt_template" not in config:
+            config["prompt_template"] = Pipeline.default_prompt_template
+
+        return super().configure(config)
+
+    @classmethod
+    def get_default_config(self) -> dict:
+        return {
+            "model_name": ResponseValidationPipeline.default_model_name,
+            "prompt_template": ResponseValidationPipeline.default_prompt_template,
+        }
+
+    # def create_prompt(self, prompt_template: str = None) -> SystemMessagePromptTemplate:
+    #     prompt_template = prompt_template or self.prompt_template
+    #     prompt = SystemMessagePromptTemplate.from_template(prompt_template)
+
+    #     return prompt
+
+
 class Pipeline(BasePipeline):
 
     default_model_name = "mistral"
@@ -133,7 +182,7 @@ class Pipeline(BasePipeline):
 class RAGPipeline(BasePipeline):
     default_embeddings = OllamaEmbeddings()
     default_model_name = "mistral"
-    default_prompt_template = """You are Haru. Answer the following question based only on the provided context. Use less than 3 sentences. Be polite and friendly. Never mention your context in the response. Never say the source. The answer should be short, polite, and succinct. Do not unnecessarily remind people that you are a `Haru` in your answer.
+    default_prompt_template = """You are Haru. Answer the following question based only on the provided context. Use less than 3 sentences, preferably 1. Be polite and friendly. Never mention your context in the response. Never say the source. The answer should be short, polite, and succinct. Do not unnecessarily remind people that you are a `Haru` in your answer. Never ask questions. Convert units if necessary. But only tell the final answer. No need to explain the steps. 
 <context>
 {context}
 </context>
@@ -226,6 +275,15 @@ if __name__ == "__main__":
     # print(base_pipe.result)
     # print(base_pipe.has_failed())
     # print(base_pipe.is_running())
+
+    answer = (
+        "The universe is 13.8 billion years old. The Earth is 4.5 billion years old."
+    )
+    query = {"input": answer}
+    rv_pipe = ResponseValidationPipeline()
+    rv_pipe.run(query)
+    rv_pipe.join()
+    print(rv_pipe.result)
 
     pipe = Pipeline()
 
