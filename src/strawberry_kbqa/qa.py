@@ -6,6 +6,8 @@ from typing import Any, Iterable, List
 
 from pipeline import Pipeline, RAGPipeline
 
+from context import ContextData, Context
+
 
 class QAHandler:
 
@@ -25,8 +27,8 @@ class QAHandler:
         self.pipelines.append(Pipeline(dict(self.config)))
 
     def answer(self, question: str, triple_data: dict) -> str:
-        context = self.convert_triple2context(triple_data["triples"])
-        context = self.process_context(context)
+        context = str(ContextData.from_triples(triple_data).to_compact_form())
+
         query = {
             "input": question,
         }
@@ -48,40 +50,6 @@ class QAHandler:
         response = self.filter_answer(raw_response)
 
         return response
-
-    @staticmethod
-    def convert_triple2context(triples: list) -> list:
-        context = [list(x.values()) for x in triples]
-        return context
-
-    @staticmethod
-    def process_context(context: list) -> str:
-        processed_context = []
-
-        unique_persons = set([x[0] for x in context if "person" in x[0]])
-        person_names = {
-            person: [x[2] for x in context if x[0] == person and "hasName" in x[1]][0]
-            for person in unique_persons
-        }
-
-        for triple in context:
-            subject, predicate, object = triple
-
-            if any(x in predicate for x in ["hasName", "rdf:type"]):
-                continue
-
-            if subject in unique_persons:
-                subject = person_names[subject]
-            if object in unique_persons:
-                object = person_names[object]
-
-            processed_context.append((subject, predicate, object))
-
-        processed_context = "\n".join(
-            [f'"{x[0]}","{x[1]}","{x[2]}"' for x in processed_context]
-        )
-
-        return processed_context
 
     @staticmethod
     def filter_answer(raw_answer: str) -> str:
