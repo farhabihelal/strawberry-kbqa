@@ -4,9 +4,9 @@ import os
 import sys
 from typing import Any, Iterable, List
 
+from context import Context, ContextData
+from nlp import NLP
 from pipeline import Pipeline, RAGPipeline
-
-from context import ContextData, Context
 
 
 class QAHandler:
@@ -15,6 +15,8 @@ class QAHandler:
         self.configure(config)
 
         self.pipelines = []
+
+        self.response_history = []
 
         self.setup_pipelines()
 
@@ -27,7 +29,8 @@ class QAHandler:
         self.pipelines.append(Pipeline(dict(self.config)))
 
     def answer(self, question: str, triple_data: dict) -> str:
-        context = str(ContextData.from_triples(triple_data).to_compact_form())
+        context_data = ContextData.from_triples(triple_data)
+        context = str(context_data.to_compact_form())
 
         query = {
             "input": question,
@@ -49,6 +52,8 @@ class QAHandler:
 
         response = self.filter_answer(raw_response)
 
+        self.response_history.append(response)
+
         return response
 
     @staticmethod
@@ -69,15 +74,6 @@ class QAHandler:
             filtered_answer = filtered_answer.replace(unwanted_text, "").strip()
 
         return filtered_answer
-
-    @classmethod
-    def get_default_prompt_template(self) -> str:
-        return """Answer the following question based only on the provided context:
-<context>
-{context}
-</context>
-
-Question: {input}"""
 
 
 if __name__ == "__main__":
