@@ -104,19 +104,14 @@ class BasePipeline:
 
 class ResponseValidationPipeline(BasePipeline):
 
-    default_model_name = "mistral:instruct"
-    default_prompt_template = """<s>[INST]Validate the given sentence. Remove any questions.
-    Paraphrase to remove undesired context information from the sentence. Such as-
-    ["According to the context provided, ...","Based on the context provided, ...","Based on the provided context, ...", etc.]
-    For example, The sentence: "Based on the context, The capital of France is Paris." should be paraphrased to "The capital of France is Paris."
-
+    default_model_name = "llama2"
+    default_prompt_template = """<s>[INST]Process the given sentence based on the steps in order:
     
-    Invalid examples:
-    "Sorry, I am an artificial intelligence."
-    "Sorry, I failed to find answer based on the context."
+    step: Remove any questions from the sentence.
+    For example, The sentence: "I am Haru. How are you today?" should be converted to "I am Haru."
+    
+    step: Return the processed sentence.
 
-    Say nothing but "FAILED" if semantic meaning of the sentence is failure. Some of the failure phrases include ["Sorry, I am an artificial intelligence.", "Sorry, I failed to find answer based on the context.", "Sorry", ... etc.].
-    For example, The sentence: "I am sorry. I could not find a suitable answer based on my context" should be responded with "FAILED".
     </s>[/INST]
     
     [INST]Sentence: {input}[/INST]
@@ -182,7 +177,29 @@ class Pipeline(BasePipeline):
 class RAGPipeline(BasePipeline):
     default_embeddings = OllamaEmbeddings()
     default_model_name = "mistral"
-    default_prompt_template = """You are Haru. Answer the following question based only on the provided context. Use less than 3 sentences, preferably 1. Be polite and friendly. Never mention your context in the response. Never say the source. The answer should be short, polite, and succinct. Do not unnecessarily remind people that you are a `Haru` in your answer. Never ask questions. Convert units if necessary. But only tell the final answer. No need to explain the steps. 
+    default_prompt_template = """You are Haru, a social robot. Answer the following question based only on the provided context.
+Follow these instructions:
+- Use less than three sentences, preferably one.
+- Be polite and friendly.
+- Never mention your context in the response.
+- Never say the source.
+- The answer should be short, polite, and succinct.
+- Do not unnecessarily remind people that who you are in your answer.
+- Never ask questions.
+- Convert units if necessary. But only tell the final answer. No need to explain the steps.
+
+Here are some examples of general knowledge questions and answer formats:
+Q: What is the capital of France?
+A: The capital of France is Paris.
+Q: What is the population of Japan?
+A: The population of Japan is 126.3 million.
+Q: What is the currency of India?
+A: The currency of India is the Indian rupee.
+Q: What is the speed of light?
+A: The speed of light is 299,792,458 meters per second.
+
+
+
 <context>
 {context}
 </context>
@@ -256,9 +273,9 @@ Question: {input}"""
 
 
 if __name__ == "__main__":
-    query = {
-        "input": "how old is the universe and earth?",
-    }
+    # query = {
+    #     "input": "how old is the universe and earth?",
+    # }
 
     # prompt_template = """Answer the following question based on general knowledge and common sense. Use less than 2 sentences. Be polite and friendly. Say "sorry" if you don't know the answer.
     # Question: {question}"""
@@ -276,32 +293,19 @@ if __name__ == "__main__":
     # print(base_pipe.has_failed())
     # print(base_pipe.is_running())
 
-    answer = (
-        "The universe is 13.8 billion years old. The Earth is 4.5 billion years old."
-    )
-    query = {"input": answer}
-    rv_pipe = ResponseValidationPipeline()
-    rv_pipe.run(query)
-    rv_pipe.join()
-    print(rv_pipe.result)
+    # answer = "The universe is 13.8 billion years old. The Earth is 4.5 billion years old. How old are you?"
+    # query = {"input": answer}
+    # rv_pipe = ResponseValidationPipeline()
+    # rv_pipe.run(query)
+    # rv_pipe.join()
+    # print(rv_pipe.result)
 
-    pipe = Pipeline()
+    # pipe = Pipeline()
 
-    pipe.run(query, context={})
-    pipe.join()
-    print(pipe.result)
+    # pipe.run(query, context={})
+    # pipe.join()
+    # print(pipe.result)
 
-    prompt_template = """Answer the following question based only on the provided context. Use less than 3 sentences. Be polite and friendly. Never mention context in the response.
-<context>
-{context}
-</context>
-
-Question: {input}"""
-
-    config = {
-        "model_name": "mistral",
-        "prompt_template": prompt_template,
-    }
     pipe = RAGPipeline()
 
     context = """("person1", "hasName", "Timmy"),
@@ -311,12 +315,13 @@ Question: {input}"""
 ("person2", "hasAge", "35"),
 ("person2", "hasPet", "lion"),
 ("person2", "hasFriend", "person1"),
+("global_context", "hasSubject", "Jimmy"),
 """
 
     context = context.replace("\n", "")
 
     query = {
-        "input": "What is Timmy's pet?",
+        "input": "How old is he?",
     }
     pipe.run(query, "")
     pipe.join()
