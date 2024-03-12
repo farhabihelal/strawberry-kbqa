@@ -1,0 +1,9 @@
+[tool.poetry]
+name = "strawberry-kbqa"
+version = "0.1.0"
+description = "Question Answering System in Natural Language over Knowledge Base."
+authors = ["Farhabi Helal <farhabi.helal@jp.honda-ri.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
