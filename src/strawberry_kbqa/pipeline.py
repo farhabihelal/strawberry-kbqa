@@ -38,6 +38,7 @@ class BasePipeline:
         self.success = False
 
     def configure(self, config: dict) -> None:
+        logging.debug(f"Configuring with: `{config}` ...")
         self.config = config
 
         self.model_name = config["model_name"]
@@ -147,8 +148,26 @@ class ResponseValidationPipeline(BasePipeline):
 class Pipeline(BasePipeline):
 
     default_model_name = "mistral"
-    default_prompt_template = """Answer the following question based on general knowledge and common sense. Use less than 2 sentences. Say "sorry" if you don't know the answer. Never say the source. The answer should be short, polite, and succinct.
-    Question: {input}"""
+    default_prompt_template = """Answer the following question based on general knowledge and common sense.
+Follow these instructions:
+- Use less than three sentences, preferably one.
+- Be polite and friendly.
+- The answer should be short, polite, and succinct.
+- Never ask questions.
+- Convert units if necessary. But only tell the final answer. No need to explain the steps.
+- Assume units in SI unless otherwise specified.
+
+Here are some examples of general knowledge questions and answer formats:
+Q: What is the capital of France?
+A: The capital of France is Paris.
+Q: What is the population of Japan?
+A: The population of Japan is 126.3 million.
+Q: What is the currency of India?
+A: The currency of India is the Indian rupee.
+Q: What is the speed of light?
+A: The speed of light is 299,792,458 meters per second.
+
+Question: {input}"""
 
     def __init__(self, config: dict = None) -> None:
         config = config or self.get_default_config()
@@ -176,7 +195,7 @@ class Pipeline(BasePipeline):
 
 class RAGPipeline(BasePipeline):
     default_embeddings = OllamaEmbeddings()
-    default_model_name = "mistral"
+    default_model_name = "llama2"
     default_prompt_template = """You are Haru, a social robot. Answer the following question based only on the provided context.
 Follow these instructions:
 - Use less than three sentences, preferably one.
