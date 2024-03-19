@@ -1,28 +1,32 @@
 import requests
 
+from rich.console import Console
+from rich.prompt import Prompt
 
-class QAClient:
+from client import QAClient
+
+
+class CLIClient(QAClient):
     def __init__(self, config: dict) -> None:
-        self.configure(config)
+        super().__init__(config)
 
-    def configure(self, config: dict) -> None:
-        self.config = config
+        self.console = Console()
 
-        self.host = config.get("host", "localhost")
-        self.port = config.get("port", 9880)
-        self.context = config.get("context", [])
+    def display_message(self, sender: str, message: str) -> None:
+        self.console.print(f"[{sender}] {message}\n")
 
-    def send_request(self, message: str, context: list = None) -> str:
-        context = context or self.context
+    def run(self) -> None:
+        self.console.print("Welcome to the CLI Chat App!", style="bold green")
 
-        url = f"http://{self.host}:{self.port}/kb/qa"
-        payload = {
-            "question": message,
-            "context": context,
-        }
+        while True:
+            message = Prompt.ask("Enter your message (type 'exit' to quit):")
 
-        response = requests.post(url, json=payload)
-        return response.json()["answer"] if response.ok else "Server Error"
+            if message.lower() == "exit":
+                self.console.print("Goodbye!")
+                break
+
+            response = self.send_request(message)
+            self.display_message("Server", response)
 
 
 if __name__ == "__main__":
@@ -92,6 +96,5 @@ if __name__ == "__main__":
             ]
         },
     }
-    client = QAClient(config)
-    answer = client.send_request("What is your name?")
-    print(answer)
+    app = CLIClient(config)
+    app.run()
